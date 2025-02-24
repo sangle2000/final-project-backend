@@ -1,0 +1,14 @@
+type User {
+    id: Int
+    email: String
+    token: String
+}
+
+type Query {
+    protectedData: String
+}
+
+type Mutation {
+    signUp(email: String!, password: String!): User
+    login(email: String!, password: String!): User
+}
