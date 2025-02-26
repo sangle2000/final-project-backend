@@ -1,3 +1,5 @@
+from tkinter.font import names
+
 import graphene
 from flask_bcrypt import Bcrypt
 from flask_jwt_extended import create_access_token
@@ -33,7 +35,7 @@ class SignUp(graphene.Mutation):
         
         token = create_access_token(identity={"id": user_id, "email": email})
         
-        return SignUp(user=UserType(id=user_id, email=email, token=token))
+        return SignUp(user=UserType(id=user_id, email=email, token=token, wallet=0, name="Unknown"))
         
         
 # Login Mutation
@@ -45,17 +47,17 @@ class Login(graphene.Mutation):
     user = graphene.Field(UserType)
     
     def mutate(self, info, email, password):
-        cursor.execute("SELECT id, email, password FROM users WHERE email = %s", (email,))
+        cursor.execute("SELECT id, email, password, name, wallet FROM users WHERE email = %s", (email,))
         user = cursor.fetchone()
         
         if not user:
             raise GraphQLError("User not found")
         
-        user_id, user_email, hashed_password = user
+        user_id, user_email, hashed_password, user_name, user_wallet = user
         
         if not bcrypt.check_password_hash(hashed_password, password):
             raise GraphQLError("Invalid password")
         
         token = create_access_token(identity={"id": user_id, "email": email})
 
-        return Login(user=UserType(id=user_id, email=user_email, token=token))
+        return Login(user=UserType(id=user_id, email=user_email, token=token, wallet=user_wallet, name=user_name))
