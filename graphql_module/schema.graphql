@@ -4,11 +4,60 @@ type User {
     token: String
 }
 
+type UpdateProfile {
+    name: String
+    phone: String
+    address: String
+}
+
+type UserData {
+    id: String
+    email: String
+    name: String
+    phone: String
+    address: String
+    role: String
+    created_at: String
+    wallet: Int
+}
+
+type ProtectedDataResponse {
+    status: String!
+    message: String!
+    data: UserData
+}
+
+type CategoryData {
+    id: String!
+    name: String!
+}
+
+type CategoryDataResponse {
+    status: String!
+    message: String!
+    data: [CategoryData]
+}
+
+type Production {
+    id: String!
+    product_code: String!
+    name: String!
+    description: String!
+    price: Int!
+    stock: Int!
+    category_id: Int!
+    image_url: String!
+    created_at: String!
+}
+
 type Query {
-    protectedData: String
+    protectedData: ProtectedDataResponse
+    categoryData: CategoryDataResponse
 }
 
 type Mutation {
     signUp(email: String!, password: String!): User
     login(email: String!, password: String!): User
+    updateProfile(name: String, phone: String, address: String): UpdateProfile
+    addProduction(product_code: String!, name: String!, description: String!, price: Int!, stock: Int!, category_id: Int!, image_url: String!): Production
 }
