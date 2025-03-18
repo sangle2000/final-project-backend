@@ -19,6 +19,30 @@ type UserData {
     role: String
     created_at: String
     wallet: Int
+    item_in_cart: Int
+}
+
+type CartItem {
+    product_id: Int!
+    quantity: Int!
+}
+
+type Production {
+    id: String!
+    product_code: String!
+    name: String!
+    description: String!
+    price: Int!
+    sale_percent: Float
+    stock: Int!
+    category_id: Int!
+    product_type: Int!
+    image_url: String!
+    created_at: String!
+}
+
+type DeleteItemInCart {
+    product_id: Int!
 }
 
 type ProtectedDataResponse {
@@ -32,32 +56,58 @@ type CategoryData {
     name: String!
 }
 
+type ProductTypeData {
+    id: String!
+    name: String!
+}
+
+type UserCartItemData {
+    id: Int!
+    product_code: String!
+    name: String!
+    price: Int!
+    salePercent: Float!
+    quantity: Int!
+    imageUrl: String!
+}
+
+type ProductDataResponse {
+    status: String!
+    message: String!
+    data: [Production]
+}
+
 type CategoryDataResponse {
     status: String!
     message: String!
     data: [CategoryData]
 }
 
-type Production {
-    id: String!
-    product_code: String!
-    name: String!
-    description: String!
-    price: Int!
-    stock: Int!
-    category_id: Int!
-    image_url: String!
-    created_at: String!
+type ProductTypeDataResponse {
+    status: String!
+    message: String!
+    data: [ProductTypeData]
+}
+
+type UserCartDataResponse {
+    status: String!
+    message: String!
+    data: [UserCartItemData]!
 }
 
 type Query {
     protectedData: ProtectedDataResponse
     categoryData: CategoryDataResponse
+    productTypeData: ProductTypeDataResponse
+    productData: ProductDataResponse
+    userCartData: UserCartDataResponse
 }
 
 type Mutation {
     signUp(email: String!, password: String!): User
     login(email: String!, password: String!): User
     updateProfile(name: String, phone: String, address: String): UpdateProfile
-    addProduction(product_code: String!, name: String!, description: String!, price: Int!, stock: Int!, category_id: Int!, image_url: String!): Production
+    addProduction(product_code: String!, name: String!, description: String!, price: Int!, stock: Int!, category_id: Int!, image_url: String!, product_type: Int!, sale_percent: Float): Production
+    addItemToCart(product_id: Int!, quantity: Int!): CartItem
+    deleteItemInCart(product_id: Int!): DeleteItemInCart
 }
