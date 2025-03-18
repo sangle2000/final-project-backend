@@ -6,3 +6,7 @@ class UserType(graphene.ObjectType):
     name = graphene.String()
     token = graphene.String()
     wallet = graphene.Int()
+    phone = graphene.String()
+    address = graphene.String()
+    time = graphene.String()
+    
