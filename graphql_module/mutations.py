@@ -1,9 +1,30 @@
 import graphene
 from flask_bcrypt import Bcrypt
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
+
 from database.db import conn
 
+from payment.vnpay import vnpay
+
+import os
+
+from dotenv import load_dotenv
+
+from datetime import datetime
+
+load_dotenv()
+
+VNPAY_TMN_CODE = os.getenv("VNPAY_TMN_CODE")
+VNPAY_RETURN_URL = os.getenv("VNPAY_RETURN_URL")
+VNPAY_PAYMENT_URL = os.getenv("VNPAY_PAYMENT_URL")
+VNPAY_HASH_SECRET_KEY = os.getenv("VNPAY_HASH_SECRET_KEY")
+
 bcrypt = Bcrypt()
+
+class UpdateUserCartItemInput(graphene.InputObjectType):
+    product_id = graphene.Int(required=True)
+    user_action = graphene.String(required=True)
+    quantity = graphene.Int()
 
 class SignUp(graphene.Mutation):
     class Arguments:
@@ -152,59 +173,110 @@ class AddProduction(graphene.Mutation):
             conn.rollback()
             return AddProduction(status="error", errors=[f"Error: {str(e)}"])
 
-
-class AddItemToCart(graphene.Mutation):
+class UpdateUserCartItem(graphene.Mutation):
     class Arguments:
-        product_id = graphene.Int(required=True)
-        quantity = graphene.Int(required=True)
-
-    status = graphene.String()
-    errors = graphene.List(graphene.String)
-
-    @jwt_required()
-    def mutate(self, info, product_id, quantity):
-        try:
-            cursor = conn.cursor()
-            
-            current_user = get_jwt_identity()
-            user_id = current_user
-            
-            cursor.execute("SELECT id FROM carts WHERE user_id = %s", (user_id,))
-            cart_id = cursor.fetchone()
-            
-            cursor.execute("""
-                INSERT INTO cart_items (cart_id, product_id, quantity) VALUES (%s, %s, %s)
-                ON CONFLICT (cart_id, product_id)
-                DO UPDATE SET quantity = cart_items.quantity + EXCLUDED.quantity
-            """, (cart_id, product_id, quantity))
-            conn.commit()
-
-            return AddItemToCart(status="success", errors=[])
-        
-        except Exception as e:
-            return AddItemToCart(status="error", errors=[f"Error: {str(e)}"])
-
-class DeleteItemInCart(graphene.Mutation):
-    class Arguments:
-        product_id = graphene.Int(required=True)
+        payload = graphene.List(UpdateUserCartItemInput, required=True)
         
     status = graphene.String()
     errors = graphene.List(graphene.String)
     
     @jwt_required()
-    def mutate(self, info, product_id):
+    def mutate(self, info, payload):
         try:
-            cursor = conn.cursor()
-            
             current_user = get_jwt_identity()
             
-            cursor.execute("""
-                DELETE FROM cart_items WHERE product_id = %s AND cart_id = (SELECT id FROM carts WHERE user_id = %s)
-            """, (product_id, current_user))
-            conn.commit()
+            cursor = conn.cursor()
             
-            return DeleteItemInCart(status="success", errors=[])
+            print(current_user)
+            
+            for item in payload:
+                print(item)
+                if item.user_action == "add":
+                    cursor.execute("SELECT id FROM carts WHERE user_id = %s", (current_user,))
+                    cart_id = cursor.fetchone()
+
+                    cursor.execute("""
+                        INSERT INTO cart_items (cart_id, product_id, quantity) VALUES (%s, %s, %s)
+                        ON CONFLICT (cart_id, product_id)
+                        DO UPDATE SET quantity = cart_items.quantity + EXCLUDED.quantity
+                    """, (cart_id, item.product_id, item.quantity))
+                    conn.commit()
+                    
+                    print("Add item to cart successfully!!!")
+                
+                elif item.user_action == "update":
+                    cursor.execute("""
+                        UPDATE cart_items AS ci
+                        SET quantity = %s
+                        FROM carts AS c
+                        WHERE ci.cart_id = c.id
+                        AND c.user_id = %s 
+                        AND ci.product_id = %s
+                    """, (item.quantity, current_user, item.product_id))
+                    
+                    conn.commit()
+                    
+                    print("Update successfully!!!")
+                    
+                elif item.user_action == "delete":
+                    cursor.execute("""
+                        DELETE FROM cart_items AS ci
+                        WHERE ci.product_id = %s
+                        AND ci.cart_id = (SELECT id FROM carts WHERE user_id = %s)
+                    """, (item.product_id, current_user))
+                    
+                    conn.commit()
+                    
+                    print("Delete successfully!!!")
+                    
+            return UpdateUserCartItem(status="success", errors=[])
+
+        except Exception as e:
+            return UpdateUserCartItem(status="error", errors=[f"Error: {str(e)}"])
+
+class Payment(graphene.Mutation):
+    class Arguments:
+        order_type = graphene.String(required=True)
+        order_id = graphene.String(required=True)
+        amount = graphene.Int(required=True)
+        order_desc = graphene.String(required=True)
+        bank_code = graphene.String(required=False)
+        language = graphene.String(required=False)
+        
+    status = graphene.String()
+    redirect_url = graphene.String()
+    errors = graphene.List(graphene.String)
+    
+    @jwt_required()
+    def mutate(self, info, order_type, order_id, amount, order_desc, bank_code, language):
+        try:
+            ipaddr = "localhost:5000"
+            # Build URL Payment
+            vnp = vnpay()
+            vnp.requestData['vnp_Version'] = '2.1.0'
+            vnp.requestData['vnp_Command'] = 'pay'
+            vnp.requestData['vnp_TmnCode'] = VNPAY_TMN_CODE
+            vnp.requestData['vnp_Amount'] = amount * 100
+            vnp.requestData['vnp_CurrCode'] = 'VND'
+            vnp.requestData['vnp_TxnRef'] = order_id
+            vnp.requestData['vnp_OrderInfo'] = order_desc
+            vnp.requestData['vnp_OrderType'] = order_type
+            # Check language, default: vn
+            if language and language != '':
+                vnp.requestData['vnp_Locale'] = language
+            else:
+                vnp.requestData['vnp_Locale'] = 'vn'
+                # Check bank_code, if bank_code is empty, customer will be selected bank on VNPAY
+            if bank_code and bank_code != "":
+                vnp.requestData['vnp_BankCode'] = bank_code
+    
+            vnp.requestData['vnp_CreateDate'] = datetime.now().strftime('%Y%m%d%H%M%S')  # 20150410063022
+            vnp.requestData['vnp_IpAddr'] = ipaddr
+            vnp.requestData['vnp_ReturnUrl'] = VNPAY_RETURN_URL
+            vnpay_payment_url = vnp.get_payment_url(VNPAY_PAYMENT_URL, VNPAY_HASH_SECRET_KEY)
+            print(vnpay_payment_url)
+    
+            return Payment(status="success", redirect_url=vnpay_payment_url, errors=[])
         
         except Exception as e:
-            return DeleteItemInCart(status="error", errors=[f"Error: {str(e)}"])
-        
+            return Payment(status="error", redirect_url="", errors=[f"Error: {str(e)}"])

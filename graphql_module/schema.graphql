@@ -22,11 +22,6 @@ type UserData {
     item_in_cart: Int
 }
 
-type CartItem {
-    product_id: Int!
-    quantity: Int!
-}
-
 type Production {
     id: String!
     product_code: String!
@@ -41,8 +36,19 @@ type Production {
     created_at: String!
 }
 
-type DeleteItemInCart {
+type Payment {
+    order_type: String!
+    order_id: String!
+    amount: Int!
+    order_desc: String!
+    bank_code: String
+    language: String!
+}
+
+input UpdateUserCartItem {
     product_id: Int!
+    user_action: String!
+    quantity: Int
 }
 
 type ProtectedDataResponse {
@@ -108,6 +114,6 @@ type Mutation {
     login(email: String!, password: String!): User
     updateProfile(name: String, phone: String, address: String): UpdateProfile
     addProduction(product_code: String!, name: String!, description: String!, price: Int!, stock: Int!, category_id: Int!, image_url: String!, product_type: Int!, sale_percent: Float): Production
-    addItemToCart(product_id: Int!, quantity: Int!): CartItem
-    deleteItemInCart(product_id: Int!): DeleteItemInCart
+    updateUserCartItem(payload: UpdateUserCartItem!): String!
+    payment(order_type: String!, order_id: String!, amount: Int!, order_desc: String!, bank_code: String, language: String!): Payment
 }

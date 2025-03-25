@@ -268,6 +268,8 @@ class UserCartDataQuery(graphene.ObjectType):
     @jwt_required()
     def resolve_user_cart_data(self, info):
         try:
+            print("Update User Cart Data!!!")
+            
             cursor = conn.cursor()
             
             current_user = get_jwt_identity()
